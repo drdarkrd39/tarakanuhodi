@@ -1,0 +1,1203 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Дезинфекционный тетрис — tarakanuhodi.kz</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+    --bg-top:#09111d;
+    --bg-bottom:#120f2e;
+    --panel:rgba(11,18,33,0.8);
+    --panel-border:rgba(160,205,255,0.2);
+    --panel-shadow:0 24px 70px rgba(0,0,0,0.42);
+    --text:#f4f8ff;
+    --muted:#9ab0c8;
+    --accent:#7ef7cf;
+    --accent-2:#ffd166;
+    --danger:#ff6b6b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; }
+body {
+    overflow:hidden;
+    color:var(--text);
+    font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;
+    background:
+        radial-gradient(circle at top, rgba(44,111,187,0.24), transparent 32%),
+        radial-gradient(circle at 20% 20%, rgba(126,247,207,0.12), transparent 20%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+body::before,
+body::after {
+    content:"";
+    position:fixed;
+    border-radius:50%;
+    pointer-events:none;
+    filter:blur(42px);
+    opacity:0.35;
+    z-index:0;
+}
+body::before {
+    width:42vmax;
+    height:42vmax;
+    top:-12vmax;
+    right:-10vmax;
+    background:radial-gradient(circle, rgba(126,247,207,0.26), transparent 66%);
+}
+body::after {
+    width:44vmax;
+    height:44vmax;
+    bottom:-18vmax;
+    left:-12vmax;
+    background:radial-gradient(circle, rgba(123,97,255,0.22), transparent 68%);
+}
+canvas { display:block; position:relative; z-index:1; }
+a { color:inherit; }
+.overlay,
+#phoneOverlay {
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:20;
+    justify-content:center;
+    align-items:center;
+    padding:24px;
+    background:rgba(4,8,17,0.8);
+    backdrop-filter:blur(16px);
+}
+.overlay.active,
+#phoneOverlay.active { display:flex; }
+.panel {
+    width:min(100%, 700px);
+    padding:28px 28px 24px;
+    border-radius:28px;
+    border:1px solid var(--panel-border);
+    background:
+        linear-gradient(180deg, rgba(18,31,55,0.95), rgba(7,12,24,0.9)),
+        rgba(11,18,33,0.8);
+    box-shadow:var(--panel-shadow);
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+}
+.panel::before {
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+        linear-gradient(135deg, rgba(126,247,207,0.08), transparent 28%),
+        linear-gradient(315deg, rgba(255,209,102,0.08), transparent 30%);
+    pointer-events:none;
+}
+.panel > * { position:relative; z-index:1; }
+.menu-title {
+    font-size:88px;
+    line-height:1;
+    margin-bottom:6px;
+    filter:drop-shadow(0 8px 16px rgba(0,0,0,0.3));
+}
+.brand-link {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:26px;
+    padding:8px 14px;
+    border-radius:999px;
+    background:rgba(126,247,207,0.1);
+    border:1px solid rgba(126,247,207,0.2);
+    color:var(--accent);
+    font-weight:700;
+    text-decoration:none;
+}
+.menu-btn {
+    display:block;
+    width:min(100%, 320px);
+    padding:15px 18px;
+    margin:10px auto;
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:16px;
+    background:linear-gradient(180deg, rgba(24,43,74,0.98), rgba(13,21,39,0.98));
+    color:var(--text);
+    font-size:18px;
+    font-weight:700;
+    cursor:pointer;
+    transition:transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    box-shadow:0 12px 24px rgba(0,0,0,0.22);
+}
+.menu-btn:hover,
+.menu-btn:focus-visible {
+    transform:translateY(-1px) scale(1.02);
+    border-color:rgba(255,209,102,0.75);
+    box-shadow:0 18px 32px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,209,102,0.15) inset;
+    outline:none;
+}
+.menu-btn.secondary { border-color:rgba(255,255,255,0.09); background:rgba(15,25,42,0.84); }
+.menu-btn.danger { border-color:rgba(255,107,107,0.45); }
+.menu-grid {
+    display:flex;
+    gap:14px;
+    justify-content:center;
+    flex-wrap:wrap;
+}
+.rules-copy {
+    text-align:left;
+    max-width:540px;
+    margin:0 auto;
+    color:#d7e2f1;
+    line-height:1.8;
+    font-size:15px;
+}
+.rules-copy p + p { margin-top:4px; }
+.leaderboard-box {
+    max-width:540px;
+    margin:0 auto;
+    max-height:min(45vh, 360px);
+    overflow-y:auto;
+    padding-right:4px;
+}
+.leader-row {
+    display:grid;
+    grid-template-columns:44px 1.1fr 0.8fr 0.7fr 0.7fr 0.8fr;
+    align-items:center;
+    padding:10px 14px;
+    margin-bottom:8px;
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+    background:rgba(255,255,255,0.03);
+    color:#d6dfeb;
+    font-size:14px;
+    gap:10px;
+}
+.leader-row:first-child {
+    color:#ffe29a;
+    font-weight:700;
+    border-color:rgba(255,209,102,0.34);
+    background:linear-gradient(90deg, rgba(255,209,102,0.14), rgba(255,255,255,0.03));
+}
+.leader-row .rank { font-weight:700; }
+.leader-row.you {
+    background:rgba(126,247,207,0.1);
+    border-color:rgba(126,247,207,0.35);
+}
+#phoneOverlay input {
+    background:rgba(5,11,22,0.76);
+    border:1px solid rgba(255,255,255,0.16);
+    border-radius:18px;
+    color:#fff;
+    font-size:34px;
+    font-weight:700;
+    padding:16px 20px;
+    text-align:center;
+    width:220px;
+    margin:18px 0;
+    letter-spacing:10px;
+    outline:none;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+#phoneOverlay input:focus {
+    border-color:rgba(255,209,102,0.75);
+    box-shadow:0 0 0 4px rgba(255,209,102,0.12);
+}
+#phoneOverlay input::placeholder { letter-spacing:2px; font-size:16px; color:#6e7c93; }
+@keyframes discountPulse {
+    0%,100% { transform:scale(1); box-shadow:0 0 10px rgba(255,215,0,0.3); }
+    50% { transform:scale(1.03); box-shadow:0 0 25px rgba(255,215,0,0.6); }
+}
+@keyframes discountGlow {
+    0%,100% { box-shadow:0 0 8px rgba(46,204,113,0.3); }
+    50% { box-shadow:0 0 20px rgba(46,204,113,0.5); }
+}
+.discount-msg {
+    margin:15px auto;
+    padding:20px 28px;
+    border-radius:14px;
+    max-width:420px;
+    font-size:18px;
+    line-height:1.6;
+    font-weight:bold;
+    text-align:center;
+}
+.discount-msg b { font-size:24px; }
+.discount-msg.top1 {
+    background:rgba(255,215,0,0.2);
+    border:3px solid #ffd700;
+    color:#ffd700;
+    animation:discountPulse 1.5s ease-in-out infinite;
+    font-size:20px;
+    text-shadow:0 0 10px rgba(255,215,0,0.5);
+}
+.discount-msg.top15 {
+    background:rgba(46,204,113,0.2);
+    border:3px solid #2ecc71;
+    color:#2ecc71;
+    animation:discountGlow 2s ease-in-out infinite;
+    text-shadow:0 0 8px rgba(46,204,113,0.4);
+}
+.discount-msg.nope {
+    background:rgba(155,89,182,0.2);
+    border:2px solid #9b59b6;
+    color:#ddd;
+    font-size:16px;
+}
+#goLeaderboard {
+    max-width:540px;
+    margin:12px auto 0;
+    max-height:240px;
+    overflow-y:auto;
+}
+#gameHud {
+    display:none;
+    position:fixed;
+    top:16px;
+    left:16px;
+    right:16px;
+    z-index:6;
+    justify-content:space-between;
+    gap:16px;
+    pointer-events:none;
+}
+#gameHud.visible { display:flex; }
+.hud-cluster {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:flex-start;
+}
+.hud-pill {
+    min-width:96px;
+    padding:10px 14px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(7,13,26,0.72);
+    backdrop-filter:blur(10px);
+    box-shadow:0 16px 30px rgba(0,0,0,0.2);
+    pointer-events:auto;
+}
+.hud-pill .label {
+    display:block;
+    color:var(--muted);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin-bottom:4px;
+}
+.hud-pill .value {
+    display:block;
+    color:#fff;
+    font-size:22px;
+    font-weight:800;
+    line-height:1;
+}
+.hud-pill.compact .value { font-size:18px; }
+.hud-action {
+    padding:11px 16px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(7,13,26,0.72);
+    color:#fff;
+    font-size:15px;
+    font-weight:700;
+    text-decoration:none;
+    cursor:pointer;
+    backdrop-filter:blur(10px);
+    pointer-events:auto;
+}
+.hud-action:hover,
+.hud-action:focus-visible {
+    border-color:rgba(255,209,102,0.7);
+    outline:none;
+}
+#touchControls {
+    display:none;
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:7;
+    justify-content:center;
+    align-items:flex-end;
+    gap:10px;
+    padding:0 14px calc(env(safe-area-inset-bottom, 0px) + 14px);
+    pointer-events:none;
+}
+#touchControls .touch-group {
+    display:flex;
+    gap:10px;
+    pointer-events:auto;
+}
+#touchControls button {
+    background:linear-gradient(180deg, rgba(28,46,77,0.96), rgba(10,17,33,0.96));
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:18px;
+    color:#fff;
+    font-size:26px;
+    width:64px;
+    height:64px;
+    cursor:pointer;
+    backdrop-filter:blur(8px);
+    transition:transform 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+    user-select:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 18px 30px rgba(0,0,0,0.26);
+}
+#touchControls button:active {
+    background:rgba(241,196,15,0.3);
+    border-color:#f1c40f;
+    transform:scale(0.95);
+}
+#touchControls .drop-btn {
+    width:86px;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:0.02em;
+}
+@media (max-width: 700px) {
+    .panel {
+        padding:24px 18px 20px;
+        border-radius:24px;
+    }
+    .menu-title { font-size:72px; }
+    .leader-row {
+        grid-template-columns:38px 1fr 0.7fr 0.7fr;
+        font-size:13px;
+    }
+    .leader-row span:nth-child(5),
+    .leader-row span:nth-child(6) { display:none; }
+    #gameHud {
+        top:10px;
+        left:10px;
+        right:10px;
+        gap:10px;
+    }
+    .hud-pill {
+        min-width:auto;
+        padding:9px 11px;
+        border-radius:15px;
+    }
+    .hud-pill .value { font-size:18px; }
+    .hud-action {
+        padding:10px 13px;
+        font-size:14px;
+        border-radius:15px;
+    }
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="gameHud">
+    <div class="hud-cluster">
+        <div class="hud-pill">
+            <span class="label">Счет</span>
+            <span class="value" id="hudScore">0</span>
+        </div>
+        <div class="hud-pill compact">
+            <span class="label">Линии</span>
+            <span class="value" id="hudLines">0</span>
+        </div>
+        <div class="hud-pill compact">
+            <span class="label">Уровень</span>
+            <span class="value" id="hudLevel">1</span>
+        </div>
+    </div>
+    <div class="hud-cluster">
+        <a id="inGameSite" class="hud-action" href="https://tarakanuhodi.kz" target="_blank">tarakanuhodi.kz</a>
+        <button id="inGameMenu" class="hud-action" onclick="inGameToMenu()">II Пауза</button>
+    </div>
+</div>
+
+<div id="touchControls">
+    <div class="touch-group">
+        <button aria-label="Влево" ontouchstart="touchAction('left',event)" ontouchend="touchEnd(event)">◀</button>
+        <button aria-label="Вниз" ontouchstart="touchAction('down',event)" ontouchend="touchEnd(event)">▼</button>
+        <button aria-label="Поворот" ontouchstart="touchAction('rotate',event)" ontouchend="touchEnd(event)">↻</button>
+        <button aria-label="Вправо" ontouchstart="touchAction('right',event)" ontouchend="touchEnd(event)">▶</button>
+    </div>
+    <div class="touch-group">
+        <button class="drop-btn" aria-label="Сбросить фигуру" ontouchstart="touchAction('drop',event)" ontouchend="touchEnd(event)">DROP</button>
+    </div>
+</div>
+
+<div id="mainMenu" class="overlay active">
+    <div class="panel">
+        <div class="menu-title">🧪</div>
+        <h1 style="color:var(--accent-2);font-size:34px;line-height:1.08;margin:10px 0 12px;">Дезинфекционный<br>тетрис</h1>
+        <p style="color:var(--muted);max-width:420px;margin:0 auto 18px;line-height:1.6;">Классический тетрис, который внезапно решил стать рекламой борьбы с вредителями. И, надо признать, получилось эффектно.</p>
+        <a href="https://tarakanuhodi.kz" target="_blank" class="brand-link">tarakanuhodi.kz</a>
+        <button class="menu-btn" onclick="startGame()">🎮 Новая игра</button>
+        <button class="menu-btn secondary" onclick="showRules()">📋 Правила</button>
+        <button class="menu-btn secondary" onclick="showLeaderboard()">🏆 Топ-15 игроков</button>
+    </div>
+</div>
+
+<div id="rulesScreen" class="overlay">
+    <div class="panel">
+        <h2 style="color:var(--accent-2);margin-bottom:20px;">📋 Правила</h2>
+        <div class="rules-copy">
+            <p>🧪 Классический <b>тетрис</b> в стиле дезинфекции.</p>
+            <p>🐜 Фигуры состоят из <b>блоков-вредителей</b>. Уничтожайте их, собирая полные линии.</p>
+            <p>⚡ Каждые 10 линий игра ускоряется, потому что покой игрока тут никто не уважает.</p>
+            <p>💰 Очки: 1 линия = 100, 2 = 300, 3 = 500, 4 = 800. Все умножается на уровень.</p>
+            <p><b>Управление:</b></p>
+            <p>◀ ▶ / A D / Ф В — двигать фигуру</p>
+            <p>▼ / S / Ы — ускорить падение</p>
+            <p>▲ / W / Ц — повернуть</p>
+            <p>Пробел — мгновенно сбросить вниз</p>
+            <p>Esc / P — пауза</p>
+            <p>📱 На телефоне доступны сенсорные кнопки и тап по полю для поворота.</p>
+        </div>
+        <button class="menu-btn secondary" style="margin-top:20px;" onclick="hideRules()">← Назад</button>
+    </div>
+</div>
+
+<div id="leaderScreen" class="overlay">
+    <div class="panel">
+        <h2 style="color:var(--accent-2);margin-bottom:20px;">🏆 Топ-15 игроков</h2>
+        <div id="leaderList" class="leaderboard-box"></div>
+        <button class="menu-btn secondary" style="margin-top:20px;" onclick="hideLeaderboard()">← Назад</button>
+    </div>
+</div>
+
+<div id="phoneOverlay">
+    <div class="panel" style="max-width:520px;">
+        <div style="font-size:64px;">📱</div>
+        <h2 style="color:var(--accent-2);margin:10px 0;">Введите последние 4 цифры<br>номера телефона</h2>
+        <p style="color:#ff9b9b;font-size:13px;max-width:350px;margin:0 auto;">Важно, чтобы номер совпадал с тем, с которого вы будете звонить. Иначе магия скидок, увы, не работает.</p>
+        <input type="tel" id="phoneInput" maxlength="4" pattern="\d{4}" placeholder="0000" inputmode="numeric">
+        <button class="menu-btn" id="phoneBtn" onclick="confirmPhone()" style="opacity:0.4;pointer-events:none;">▶ Начать</button>
+        <button class="menu-btn danger" onclick="cancelPhone()">← Назад</button>
+    </div>
+</div>
+
+<div id="gameOverScreen" class="overlay">
+    <div class="panel" style="max-width:700px;">
+        <div style="font-size:64px;margin-bottom:10px;">🧹</div>
+        <h1 style="color:var(--danger);font-size:36px;">Игра окончена</h1>
+        <p style="margin:8px 0 10px;"><a href="https://tarakanuhodi.kz" target="_blank" class="brand-link" style="margin:0;">tarakanuhodi.kz</a></p>
+        <div id="goStats" style="color:#d4dfec;font-size:18px;margin:10px 0;"></div>
+        <div id="goDiscount"></div>
+        <div id="goLeaderboard"></div>
+        <div class="menu-grid" style="margin-top:18px;">
+            <button class="menu-btn" onclick="restartGame()">🔄 Еще раз</button>
+            <button class="menu-btn secondary" onclick="toMenu()">🏠 В меню</button>
+        </div>
+    </div>
+</div>
+
+<div id="pauseScreen" class="overlay">
+    <div class="panel" style="max-width:460px;">
+        <div style="font-size:58px;margin-bottom:8px;">⏸</div>
+        <h1 style="color:var(--accent-2);font-size:42px;">Пауза</h1>
+        <p style="color:var(--muted);margin:10px auto 18px;max-width:320px;">Можно перевести дух, оценить ситуацию и снова отправить тараканов в небытие.</p>
+        <button class="menu-btn" style="margin-top:8px;" onclick="resumeGame()">▶ Вернуться в игру</button>
+        <button class="menu-btn secondary" onclick="toMenu()">🏠 Выйти в меню</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const COLS = 10;
+const ROWS = 20;
+const PIECE_EMOJIS = ['🐜', '🪳', '🦟', '🐛', '🪰', '🐀', '🦗'];
+const PIECE_COLORS = ['#00e5ff', '#ffe600', '#b44dff', '#00e676', '#ff3d00', '#2979ff', '#ff9100'];
+const PIECES = [
+    [[1,1,1,1]],
+    [[1,1],[1,1]],
+    [[0,1,0],[1,1,1]],
+    [[0,1,1],[1,1,0]],
+    [[1,1,0],[0,1,1]],
+    [[1,0,0],[1,1,1]],
+    [[0,0,1],[1,1,1]],
+];
+const LINE_SCORES = [0, 100, 300, 500, 800];
+
+const SUPABASE_URL = 'https://adfyjjmchibvxsxvyjvh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnlqam1jaGlidnhzeHZ5anZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwODY4MjIsImV4cCI6MjA5MTY2MjgyMn0.DAB_yCzyP4CgjvBTfSm-FgUCyRcuuLjxkAT-vHRMs9o';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let playerPhone = '';
+
+async function fetchLeaderboard() {
+    const { data, error } = await sb.from('tetris_leaderboard')
+        .select('*').order('score', { ascending: false }).order('lines', { ascending: false }).limit(200);
+    if (error) { console.error('Supabase error:', error); return []; }
+    const best = new Map();
+    for (const row of (data || [])) {
+        const prev = best.get(row.phone);
+        if (!prev || row.score > prev.score || (row.score === prev.score && row.lines > prev.lines)) best.set(row.phone, row);
+    }
+    return [...best.values()].sort((a, b) => b.score - a.score || b.lines - a.lines).slice(0, 15);
+}
+
+async function saveScore(score, lines, level) {
+    const entry = { phone: playerPhone, score, lines, level };
+    const { error } = await sb.from('tetris_leaderboard').insert([entry]);
+    if (error) console.error('Supabase save error:', error);
+    return await fetchLeaderboard();
+}
+
+function renderLeaderboardRows(lb, el, highlightPhone) {
+    if (!lb || lb.length === 0) {
+        el.innerHTML = '<p style="color:#73839a;padding:20px;">Пока пусто. Сыграй первую партию и стань легендой локального тараканьего сопротивления.</p>';
+        return;
+    }
+    el.innerHTML = lb.map((e, i) => {
+        const isYou = highlightPhone && e.phone === highlightPhone;
+        const date = new Date(e.created_at).toLocaleDateString('ru');
+        const rank = i === 0 ? '👑' : i + 1;
+        return `<div class="leader-row${isYou ? ' you' : ''}">
+            <span class="rank">${rank}</span>
+            <span>📱 ${e.phone}</span>
+            <span>💰 ${e.score}</span>
+            <span>📏 ${e.lines}</span>
+            <span>⚡ Ур.${e.level}</span>
+            <span style="color:#74869f">${date}</span>
+        </div>`;
+    }).join('');
+}
+
+async function renderLeaderboard() {
+    const lb = await fetchLeaderboard();
+    renderLeaderboardRows(lb, document.getElementById('leaderList'), null);
+}
+let gameState = 'menu';
+let board = [];
+let boardColors = [];
+let current = null;
+let nextPiece = null;
+let score = 0;
+let totalLines = 0;
+let level = 1;
+let dropTimer = 0;
+let dropInterval = 1;
+let gameOver = false;
+let paused = false;
+let animatingLines = [];
+let animTimer = 0;
+let cellSize = 30;
+let boardX = 0;
+let boardY = 0;
+let isMobile = false;
+let boardOuterX = 0;
+let boardOuterY = 0;
+let boardOuterW = 0;
+let boardOuterH = 0;
+
+const particles = Array.from({ length: 26 }, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    r: 1 + Math.random() * 3,
+    speed: 0.008 + Math.random() * 0.018,
+    drift: (Math.random() - 0.5) * 0.03,
+    alpha: 0.08 + Math.random() * 0.18,
+}));
+
+function setHudVisible(show) {
+    document.getElementById('gameHud').classList.toggle('visible', show);
+    document.getElementById('touchControls').style.display = (show && isMobile) ? 'flex' : 'none';
+}
+
+function updateHud() {
+    document.getElementById('hudScore').textContent = score;
+    document.getElementById('hudLines').textContent = totalLines;
+    document.getElementById('hudLevel').textContent = level;
+}
+
+function resize() {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    isMobile = innerWidth < 700;
+
+    const topHudSpace = isMobile ? 92 : 70;
+    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 116 : 36;
+    const sidePadding = isMobile ? 14 : 34;
+    const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, innerWidth * 0.18));
+    const availableWidth = innerWidth - sidePadding * 2 - sidebarWidth;
+    const availableHeight = innerHeight - topHudSpace - bottomControls;
+
+    cellSize = Math.floor(Math.min(availableWidth / COLS, availableHeight / ROWS));
+    cellSize = Math.max(16, Math.min(cellSize, isMobile ? 34 : 38));
+
+    const boardWidth = COLS * cellSize;
+    const boardHeight = ROWS * cellSize;
+    boardX = Math.floor((innerWidth - boardWidth - (isMobile ? 0 : sidebarWidth * 0.55)) / 2);
+    boardY = Math.floor((innerHeight - boardHeight - bottomControls + topHudSpace) / 2);
+    if (!isMobile) boardX = Math.max(sidePadding + 8, boardX);
+    boardY = Math.max(topHudSpace, boardY);
+
+    boardOuterX = boardX - 18;
+    boardOuterY = boardY - 18;
+    boardOuterW = boardWidth + 36;
+    boardOuterH = boardHeight + 36;
+
+    setHudVisible(gameState === 'playing' || gameState === 'paused');
+}
+addEventListener('resize', resize);
+
+function initBoard() {
+    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    boardColors = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+}
+
+function randomPiece() {
+    const idx = Math.floor(Math.random() * PIECES.length);
+    return {
+        shape: PIECES[idx].map(r => [...r]),
+        color: PIECE_COLORS[idx],
+        emoji: PIECE_EMOJIS[idx],
+        type: idx,
+        x: Math.floor(COLS / 2) - Math.ceil(PIECES[idx][0].length / 2),
+        y: 0,
+    };
+}
+
+function rotatePiece(shape) {
+    const rows = shape.length;
+    const cols = shape[0].length;
+    const rotated = Array.from({ length: cols }, () => Array(rows).fill(0));
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            rotated[c][rows - 1 - r] = shape[r][c];
+        }
+    }
+    return rotated;
+}
+
+function collides(shape, px, py) {
+    for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[r].length; c++) {
+            if (!shape[r][c]) continue;
+            const nx = px + c;
+            const ny = py + r;
+            if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+            if (ny >= 0 && board[ny][nx]) return true;
+        }
+    }
+    return false;
+}
+
+function lockPiece() {
+    for (let r = 0; r < current.shape.length; r++) {
+        for (let c = 0; c < current.shape[r].length; c++) {
+            if (!current.shape[r][c]) continue;
+            const ny = current.y + r;
+            const nx = current.x + c;
+            if (ny < 0) { triggerGameOver(); return; }
+            board[ny][nx] = 1;
+            boardColors[ny][nx] = { color: current.color, emoji: current.emoji };
+        }
+    }
+    clearLines();
+    spawnNext();
+}
+
+function clearLines() {
+    const full = [];
+    for (let r = 0; r < ROWS; r++) {
+        if (board[r].every(v => v)) full.push(r);
+    }
+    if (full.length === 0) return;
+    animatingLines = full;
+    animTimer = 0.4;
+    score += LINE_SCORES[Math.min(full.length, 4)] * level;
+    totalLines += full.length;
+    level = Math.floor(totalLines / 10) + 1;
+    dropInterval = Math.max(0.05, 1 - (level - 1) * 0.08);
+    updateHud();
+}
+
+function finishLineClear() {
+    for (const r of animatingLines.sort((a, b) => b - a)) {
+        board.splice(r, 1);
+        boardColors.splice(r, 1);
+        board.unshift(Array(COLS).fill(0));
+        boardColors.unshift(Array(COLS).fill(null));
+    }
+    animatingLines = [];
+}
+
+function spawnNext() {
+    current = nextPiece || randomPiece();
+    nextPiece = randomPiece();
+    if (collides(current.shape, current.x, current.y)) triggerGameOver();
+}
+
+function hardDrop() {
+    while (!collides(current.shape, current.x, current.y + 1)) current.y++;
+    lockPiece();
+}
+
+function getGhostY() {
+    let gy = current.y;
+    while (!collides(current.shape, current.x, gy + 1)) gy++;
+    return gy;
+}
+
+const keys = {};
+addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    const k = e.key.toLowerCase();
+    if (!keys[k]) {
+        keys[k] = true;
+        handleInput(k);
+    }
+    e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function handleInput(k) {
+    if (gameState !== 'playing' || gameOver || paused || animatingLines.length > 0) return;
+    if (k === 'a' || k === 'ф' || k === 'arrowleft') {
+        if (!collides(current.shape, current.x - 1, current.y)) current.x--;
+    } else if (k === 'd' || k === 'в' || k === 'arrowright') {
+        if (!collides(current.shape, current.x + 1, current.y)) current.x++;
+    } else if (k === 's' || k === 'ы' || k === 'arrowdown') {
+        if (!collides(current.shape, current.x, current.y + 1)) {
+            current.y++;
+            dropTimer = 0;
+        }
+    } else if (k === 'w' || k === 'ц' || k === 'arrowup') {
+        const rotated = rotatePiece(current.shape);
+        for (const dx of [0, -1, 1, -2, 2]) {
+            if (!collides(rotated, current.x + dx, current.y)) {
+                current.shape = rotated;
+                current.x += dx;
+                break;
+            }
+        }
+    } else if (k === ' ') {
+        hardDrop();
+    } else if (k === 'escape' || k === 'p' || k === 'з') {
+        pauseGame();
+    }
+}
+
+function touchAction(action, e) {
+    e.preventDefault();
+    if (gameState !== 'playing' || gameOver || paused) return;
+    if (action === 'left') handleInput('arrowleft');
+    else if (action === 'right') handleInput('arrowright');
+    else if (action === 'down') handleInput('arrowdown');
+    else if (action === 'rotate') handleInput('arrowup');
+    else if (action === 'drop') hardDrop();
+}
+function touchEnd(e) { e.preventDefault(); }
+
+let swipeStart = null;
+canvas.addEventListener('touchstart', e => {
+    if (gameState !== 'playing' || paused) return;
+    swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', e => {
+    if (!swipeStart || gameState !== 'playing' || paused) return;
+    const dx = e.changedTouches[0].clientX - swipeStart.x;
+    const dy = e.changedTouches[0].clientY - swipeStart.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 20) handleInput('arrowup');
+    swipeStart = null;
+}, { passive: false });
+
+setInterval(() => {
+    if (gameState !== 'playing' || paused || animatingLines.length > 0) return;
+    if (keys['a'] || keys['ф'] || keys['arrowleft']) handleInput('arrowleft');
+    if (keys['d'] || keys['в'] || keys['arrowright']) handleInput('arrowright');
+    if (keys['s'] || keys['ы'] || keys['arrowdown']) handleInput('arrowdown');
+}, 100);
+
+function update(dt) {
+    if (gameState !== 'playing' || gameOver || paused) return;
+    if (animatingLines.length > 0) {
+        animTimer -= dt;
+        if (animTimer <= 0) finishLineClear();
+        return;
+    }
+    dropTimer += dt;
+    if (dropTimer >= dropInterval) {
+        dropTimer = 0;
+        if (!collides(current.shape, current.x, current.y + 1)) current.y++;
+        else lockPiece();
+    }
+}
+function drawBackground(now) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#09111d');
+    gradient.addColorStop(1, '#120f2e');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (const p of particles) {
+        p.y += p.speed * 0.35;
+        p.x += Math.sin(now * 0.00015 + p.y * 8) * 0.0004 + p.drift * 0.0005;
+        if (p.y > 1.05) { p.y = -0.05; p.x = Math.random(); }
+        if (p.x > 1.05) p.x = -0.05;
+        if (p.x < -0.05) p.x = 1.05;
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(160, 205, 255, ${p.alpha})`;
+        ctx.arc(p.x * canvas.width, p.y * canvas.height, p.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawRoundedRect(x, y, w, h, radius, fillStyle, strokeStyle) {
+    const r = Math.min(radius, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+    }
+    if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.stroke();
+    }
+}
+
+function drawBlock(x, y, size, color, emoji, ghost = false, clearing = false, now = 0) {
+    const alpha = ghost ? 0.22 : 1;
+    const gradient = ctx.createLinearGradient(x, y, x, y + size);
+    gradient.addColorStop(0, ghost ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.28)');
+    gradient.addColorStop(0.3, color);
+    gradient.addColorStop(1, ghost ? color : 'rgba(7, 12, 24, 0.95)');
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawRoundedRect(x + 2, y + 2, size - 4, size - 4, Math.max(6, size * 0.18), gradient, 'rgba(255,255,255,0.12)');
+    if (!ghost) {
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fillRect(x + 5, y + 5, size - 10, Math.max(8, size * 0.24));
+    }
+    if (!ghost) {
+        const glow = ctx.createRadialGradient(x + size / 2, y + size / 2, 2, x + size / 2, y + size / 2, size * 0.7);
+        glow.addColorStop(0, 'rgba(255,255,255,0.16)');
+        glow.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(x, y, size, size);
+    }
+    if (!ghost && (!clearing || Math.sin(now * 0.03) <= 0)) {
+        const fontSize = Math.max(10, size - 10);
+        ctx.font = `${fontSize}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(emoji, x + size / 2, y + size / 2 + 1);
+    }
+    ctx.restore();
+}
+
+function drawSidebar(now) {
+    if (isMobile) return;
+    const panelX = boardOuterX + boardOuterW + 22;
+    const panelY = boardOuterY + 10;
+    const panelW = Math.min(210, canvas.width - panelX - 20);
+    if (panelW < 120) return;
+
+    drawRoundedRect(panelX, panelY, panelW, 250, 24, 'rgba(7,13,26,0.62)', 'rgba(255,255,255,0.08)');
+
+    ctx.fillStyle = '#9ab0c8';
+    ctx.font = 'bold 13px "Trebuchet MS", Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('Следующая фигура', panelX + 18, panelY + 30);
+
+    if (nextPiece) {
+        const previewCs = Math.min(cellSize, 26);
+        const shapeWidth = nextPiece.shape[0].length * previewCs;
+        const startX = panelX + (panelW - shapeWidth) / 2;
+        const startY = panelY + 52;
+        for (let r = 0; r < nextPiece.shape.length; r++) {
+            for (let c = 0; c < nextPiece.shape[r].length; c++) {
+                if (!nextPiece.shape[r][c]) continue;
+                drawBlock(startX + c * previewCs, startY + r * previewCs, previewCs, nextPiece.color, nextPiece.emoji, false, false, now);
+            }
+        }
+    }
+
+    const stats = [
+        ['Очки', score, '#ffd166'],
+        ['Линии', totalLines, '#7ef7cf'],
+        ['Уровень', level, '#8eb9ff'],
+    ];
+    let sy = panelY + 136;
+    for (const [label, value, accent] of stats) {
+        drawRoundedRect(panelX + 14, sy, panelW - 28, 30, 14, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.05)');
+        ctx.fillStyle = '#9ab0c8';
+        ctx.font = '12px "Trebuchet MS", Arial';
+        ctx.fillText(label, panelX + 28, sy + 19);
+        ctx.fillStyle = accent;
+        ctx.font = 'bold 16px "Trebuchet MS", Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText(String(value), panelX + panelW - 28, sy + 20);
+        ctx.textAlign = 'left';
+        sy += 38;
+    }
+}
+
+function drawTopMobileHint() {
+    if (!isMobile) return;
+    drawRoundedRect(boardX, boardOuterY - 42, COLS * cellSize, 26, 13, 'rgba(7,13,26,0.64)', 'rgba(255,255,255,0.06)');
+    ctx.fillStyle = '#9ab0c8';
+    ctx.font = '12px "Trebuchet MS", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Тап по полю — поворот. Кнопки снизу — движение и drop.', boardX + (COLS * cellSize) / 2, boardOuterY - 24);
+}
+
+function draw() {
+    const now = performance.now();
+    drawBackground(now);
+
+    if (gameState !== 'playing' && gameState !== 'paused') return;
+
+    const bx = boardX;
+    const by = boardY;
+    const cs = cellSize;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 30;
+    drawRoundedRect(boardOuterX, boardOuterY, boardOuterW, boardOuterH, 28, 'rgba(7,13,26,0.72)', 'rgba(255,255,255,0.08)');
+    ctx.restore();
+
+    drawRoundedRect(bx - 2, by - 2, COLS * cs + 4, ROWS * cs + 4, 22, 'rgba(12,21,40,0.94)', 'rgba(151,196,255,0.12)');
+
+    const innerGradient = ctx.createLinearGradient(0, by, 0, by + ROWS * cs);
+    innerGradient.addColorStop(0, 'rgba(17, 25, 45, 0.96)');
+    innerGradient.addColorStop(1, 'rgba(8, 13, 24, 0.98)');
+    ctx.fillStyle = innerGradient;
+    ctx.fillRect(bx, by, COLS * cs, ROWS * cs);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let c = 1; c < COLS; c++) {
+        ctx.beginPath();
+        ctx.moveTo(bx + c * cs, by);
+        ctx.lineTo(bx + c * cs, by + ROWS * cs);
+        ctx.stroke();
+    }
+    for (let r = 1; r < ROWS; r++) {
+        ctx.beginPath();
+        ctx.moveTo(bx, by + r * cs);
+        ctx.lineTo(bx + COLS * cs, by + r * cs);
+        ctx.stroke();
+    }
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (!board[r][c]) continue;
+            const info = boardColors[r][c];
+            const isClearing = animatingLines.includes(r);
+            drawBlock(bx + c * cs, by + r * cs, cs, info.color, info.emoji, false, isClearing, now);
+        }
+    }
+
+    if (current && animatingLines.length === 0) {
+        const gy = getGhostY();
+        for (let r = 0; r < current.shape.length; r++) {
+            for (let c = 0; c < current.shape[r].length; c++) {
+                if (!current.shape[r][c]) continue;
+                drawBlock(bx + (current.x + c) * cs, by + (gy + r) * cs, cs, current.color, current.emoji, true, false, now);
+            }
+        }
+    }
+
+    if (current && animatingLines.length === 0) {
+        for (let r = 0; r < current.shape.length; r++) {
+            for (let c = 0; c < current.shape[r].length; c++) {
+                if (!current.shape[r][c]) continue;
+                drawBlock(bx + (current.x + c) * cs, by + (current.y + r) * cs, cs, current.color, current.emoji, false, false, now);
+            }
+        }
+    }
+
+    drawSidebar(now);
+    drawTopMobileHint();
+
+    if (gameState === 'paused') {
+        drawRoundedRect(boardOuterX, boardOuterY, boardOuterW, boardOuterH, 28, 'rgba(2,5,12,0.38)', null);
+    }
+}
+
+function hideAll() {
+    document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+    document.getElementById('phoneOverlay').classList.remove('active');
+}
+
+function startGame() {
+    hideAll();
+    document.getElementById('phoneOverlay').classList.add('active');
+    const inp = document.getElementById('phoneInput');
+    inp.value = playerPhone || '';
+    updatePhoneBtn();
+    setTimeout(() => inp.focus(), 100);
+}
+
+function updatePhoneBtn() {
+    const btn = document.getElementById('phoneBtn');
+    const val = document.getElementById('phoneInput').value.replace(/\D/g, '');
+    btn.style.opacity = val.length === 4 ? '1' : '0.4';
+    btn.style.pointerEvents = val.length === 4 ? 'auto' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('phoneInput');
+    inp.addEventListener('input', () => {
+        inp.value = inp.value.replace(/\D/g, '').slice(0, 4);
+        updatePhoneBtn();
+    });
+    inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') confirmPhone();
+    });
+    resize();
+});
+
+function confirmPhone() {
+    const val = document.getElementById('phoneInput').value.replace(/\D/g, '');
+    if (val.length !== 4) return;
+    playerPhone = val;
+    hideAll();
+    resetGame();
+    gameState = 'playing';
+    setHudVisible(true);
+}
+
+function cancelPhone() {
+    hideAll();
+    document.getElementById('mainMenu').classList.add('active');
+}
+
+function showRules() {
+    hideAll();
+    document.getElementById('rulesScreen').classList.add('active');
+}
+
+function hideRules() {
+    hideAll();
+    document.getElementById('mainMenu').classList.add('active');
+}
+
+async function showLeaderboard() {
+    hideAll();
+    document.getElementById('leaderScreen').classList.add('active');
+    document.getElementById('leaderList').innerHTML = '<p style="color:#73839a;padding:20px;">Загрузка...</p>';
+    await renderLeaderboard();
+}
+
+function hideLeaderboard() {
+    hideAll();
+    document.getElementById('mainMenu').classList.add('active');
+}
+
+function restartGame() {
+    hideAll();
+    resetGame();
+    gameState = 'playing';
+    setHudVisible(true);
+}
+
+function toMenu() {
+    hideAll();
+    gameState = 'menu';
+    gameOver = true;
+    paused = false;
+    setHudVisible(false);
+    document.getElementById('mainMenu').classList.add('active');
+}
+
+function inGameToMenu() {
+    if (gameState === 'playing' || gameState === 'paused') pauseGame();
+}
+
+function pauseGame() {
+    if (gameState !== 'playing') return;
+    paused = true;
+    gameState = 'paused';
+    document.getElementById('pauseScreen').classList.add('active');
+    setHudVisible(true);
+}
+
+function resumeGame() {
+    hideAll();
+    paused = false;
+    gameState = 'playing';
+    setHudVisible(true);
+}
+
+function resetGame() {
+    initBoard();
+    score = 0;
+    totalLines = 0;
+    level = 1;
+    dropTimer = 0;
+    dropInterval = 1;
+    gameOver = false;
+    paused = false;
+    animatingLines = [];
+    animTimer = 0;
+    nextPiece = randomPiece();
+    spawnNext();
+    updateHud();
+    resize();
+}
+
+async function triggerGameOver() {
+    gameOver = true;
+    gameState = 'over';
+    paused = false;
+    setHudVisible(false);
+
+    const goScreen = document.getElementById('gameOverScreen');
+    document.getElementById('goStats').innerHTML =
+        `💰 Счёт: <b>${score}</b> &nbsp;|&nbsp; 📏 Линии: <b>${totalLines}</b><br>⚡ Уровень: <b>${level}</b>`;
+    document.getElementById('goDiscount').innerHTML = '<p style="color:#73839a;">Сохранение результата...</p>';
+    document.getElementById('goLeaderboard').innerHTML = '';
+    goScreen.classList.add('active');
+
+    const lb = await saveScore(score, totalLines, level);
+
+    let myPos = -1;
+    if (lb && lb.length > 0) {
+        for (let i = 0; i < lb.length; i++) {
+            if (lb[i].phone === playerPhone && lb[i].score === score && lb[i].lines === totalLines) {
+                myPos = i;
+                break;
+            }
+        }
+    }
+
+    const discEl = document.getElementById('goDiscount');
+    if (myPos === 0) {
+        discEl.innerHTML = '<div class="discount-msg top1">🏆 Вы лучший! Ваша скидка <b>30%</b>!<br>Сообщите об этом оператору при звонке.</div>';
+    } else if (myPos >= 0 && myPos < 15) {
+        discEl.innerHTML = '<div class="discount-msg top15">🎉 Вы вошли в топ-15! Ваша скидка <b>15%</b>!<br>Скажите об этом оператору при звонке.</div>';
+    } else {
+        discEl.innerHTML = '<div class="discount-msg nope">Вы не вошли в топ-15 игроков.<br>Ваша скидка <b>5%</b>. Назовите фразу <b>«Пароль рыба-меч»</b> для получения скидки.</div>';
+    }
+
+    renderLeaderboardRows(lb, document.getElementById('goLeaderboard'), playerPhone);
+}
+
+let lastTime = performance.now();
+function loop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+}
+
+resize();
+updateHud();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
