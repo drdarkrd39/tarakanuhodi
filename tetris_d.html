@@ -617,19 +617,35 @@ function resize() {
     isMobile = vw < 700;
 
     const topHudSpace = isMobile ? 92 : 70;
-    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 180 : 36;
+    // Измеряем реальную верхнюю границу кнопок управления
+    let buttonsTop = vh;
+    if (isMobile && (gameState === 'playing' || gameState === 'paused')) {
+        const tc = document.getElementById('touchControls');
+        if (tc) {
+            tc.style.display = 'flex';
+            const rect = tc.getBoundingClientRect();
+            if (rect.height > 0) buttonsTop = rect.top;
+            else buttonsTop = vh - 180;
+        } else {
+            buttonsTop = vh - 180;
+        }
+    } else {
+        buttonsTop = vh - 36;
+    }
+    const gap = 12;
     const sidePadding = isMobile ? 14 : 34;
     const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, vw * 0.18));
     const availableWidth = vw - sidePadding * 2 - sidebarWidth;
-    const availableHeight = vh - topHudSpace - bottomControls;
+    const availableHeight = Math.max(80, buttonsTop - topHudSpace - gap);
 
     cellSize = Math.floor(Math.min(availableWidth / COLS, availableHeight / ROWS));
-    cellSize = Math.max(10, Math.min(cellSize, isMobile ? 34 : 38));
+    cellSize = Math.max(6, Math.min(cellSize, isMobile ? 34 : 38));
+    while (cellSize * ROWS > availableHeight && cellSize > 6) cellSize--;
 
     const boardWidth = COLS * cellSize;
     const boardHeight = ROWS * cellSize;
     boardX = Math.floor((vw - boardWidth - (isMobile ? 0 : sidebarWidth * 0.55)) / 2);
-    boardY = Math.floor((vh - boardHeight - bottomControls + topHudSpace) / 2);
+    boardY = Math.floor(buttonsTop - boardHeight - gap);
     if (!isMobile) boardX = Math.max(sidePadding + 8, boardX);
     boardY = Math.max(topHudSpace, boardY);
 
