@@ -617,15 +617,14 @@ function resize() {
     isMobile = vw < 700;
 
     const topHudSpace = isMobile ? 92 : 70;
-    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 220 : 36;
+    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 180 : 36;
     const sidePadding = isMobile ? 14 : 34;
     const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, vw * 0.18));
     const availableWidth = vw - sidePadding * 2 - sidebarWidth;
-    const availableHeight = Math.max(100, vh - topHudSpace - bottomControls);
+    const availableHeight = vh - topHudSpace - bottomControls;
 
     cellSize = Math.floor(Math.min(availableWidth / COLS, availableHeight / ROWS));
-    cellSize = Math.max(6, Math.min(cellSize, isMobile ? 32 : 38));
-    while (cellSize * ROWS > availableHeight && cellSize > 6) cellSize--;
+    cellSize = Math.max(10, Math.min(cellSize, isMobile ? 34 : 38));
 
     const boardWidth = COLS * cellSize;
     const boardHeight = ROWS * cellSize;
