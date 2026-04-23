@@ -319,7 +319,7 @@ a { color:inherit; }
     justify-content:center;
     align-items:flex-end;
     gap:10px;
-    padding:0 14px calc(env(safe-area-inset-bottom, 16px) + 24px);
+    padding:0 14px calc(env(safe-area-inset-bottom, 0px) + 70px);
     pointer-events:none;
 }
 #touchControls .touch-group {
@@ -615,7 +615,7 @@ function resize() {
     isMobile = innerWidth < 700;
 
     const topHudSpace = isMobile ? 92 : 70;
-    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 116 : 36;
+    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 180 : 36;
     const sidePadding = isMobile ? 14 : 34;
     const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, innerWidth * 0.18));
     const availableWidth = innerWidth - sidePadding * 2 - sidebarWidth;
