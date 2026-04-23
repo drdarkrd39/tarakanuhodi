@@ -610,24 +610,26 @@ function updateHud() {
 }
 
 function resize() {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
-    isMobile = innerWidth < 700;
+    const vw = window.visualViewport ? window.visualViewport.width : innerWidth;
+    const vh = window.visualViewport ? window.visualViewport.height : innerHeight;
+    canvas.width = vw;
+    canvas.height = vh;
+    isMobile = vw < 700;
 
     const topHudSpace = isMobile ? 92 : 70;
     const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 180 : 36;
     const sidePadding = isMobile ? 14 : 34;
-    const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, innerWidth * 0.18));
-    const availableWidth = innerWidth - sidePadding * 2 - sidebarWidth;
-    const availableHeight = innerHeight - topHudSpace - bottomControls;
+    const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, vw * 0.18));
+    const availableWidth = vw - sidePadding * 2 - sidebarWidth;
+    const availableHeight = vh - topHudSpace - bottomControls;
 
     cellSize = Math.floor(Math.min(availableWidth / COLS, availableHeight / ROWS));
-    cellSize = Math.max(16, Math.min(cellSize, isMobile ? 34 : 38));
+    cellSize = Math.max(10, Math.min(cellSize, isMobile ? 34 : 38));
 
     const boardWidth = COLS * cellSize;
     const boardHeight = ROWS * cellSize;
-    boardX = Math.floor((innerWidth - boardWidth - (isMobile ? 0 : sidebarWidth * 0.55)) / 2);
-    boardY = Math.floor((innerHeight - boardHeight - bottomControls + topHudSpace) / 2);
+    boardX = Math.floor((vw - boardWidth - (isMobile ? 0 : sidebarWidth * 0.55)) / 2);
+    boardY = Math.floor((vh - boardHeight - bottomControls + topHudSpace) / 2);
     if (!isMobile) boardX = Math.max(sidePadding + 8, boardX);
     boardY = Math.max(topHudSpace, boardY);
 
@@ -639,6 +641,11 @@ function resize() {
     setHudVisible(gameState === 'playing' || gameState === 'paused');
 }
 addEventListener('resize', resize);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resize);
+    window.visualViewport.addEventListener('scroll', resize);
+}
+addEventListener('orientationchange', () => setTimeout(resize, 150));
 
 function initBoard() {
     board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
