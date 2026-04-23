@@ -319,7 +319,7 @@ a { color:inherit; }
     justify-content:center;
     align-items:flex-end;
     gap:10px;
-    padding:0 14px calc(env(safe-area-inset-bottom, 0px) + 90px);
+    padding:0 14px calc(env(safe-area-inset-bottom, 0px) + 70px);
     pointer-events:none;
 }
 #touchControls .touch-group {
@@ -614,30 +614,24 @@ function resize() {
     const vh = window.visualViewport ? window.visualViewport.height : innerHeight;
     canvas.width = vw;
     canvas.height = vh;
-    canvas.style.width = vw + 'px';
-    canvas.style.height = vh + 'px';
     isMobile = vw < 700;
 
-    const topHudSpace = isMobile ? 100 : 70;
-    // На мобильном резервируем снизу 40% высоты (или минимум 260px) — под кнопки + панель браузера
-    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused'))
-        ? Math.max(260, Math.floor(vh * 0.4))
-        : 36;
+    const topHudSpace = isMobile ? 92 : 70;
+    const bottomControls = (isMobile && (gameState === 'playing' || gameState === 'paused')) ? 180 : 36;
     const sidePadding = isMobile ? 14 : 34;
     const sidebarWidth = isMobile ? 0 : Math.min(220, Math.max(150, vw * 0.18));
     const availableWidth = vw - sidePadding * 2 - sidebarWidth;
-    const availableHeight = Math.max(100, vh - topHudSpace - bottomControls);
+    const availableHeight = vh - topHudSpace - bottomControls;
 
     cellSize = Math.floor(Math.min(availableWidth / COLS, availableHeight / ROWS));
-    cellSize = Math.max(6, Math.min(cellSize, isMobile ? 30 : 38));
-    // Гарантия: поле точно влезает в availableHeight
-    while (cellSize * ROWS > availableHeight && cellSize > 6) cellSize--;
+    cellSize = Math.max(10, Math.min(cellSize, isMobile ? 34 : 38));
 
     const boardWidth = COLS * cellSize;
     const boardHeight = ROWS * cellSize;
     boardX = Math.floor((vw - boardWidth - (isMobile ? 0 : sidebarWidth * 0.55)) / 2);
-    boardY = topHudSpace + 10;
+    boardY = Math.floor((vh - boardHeight - bottomControls + topHudSpace) / 2);
     if (!isMobile) boardX = Math.max(sidePadding + 8, boardX);
+    boardY = Math.max(topHudSpace, boardY);
 
     boardOuterX = boardX - 18;
     boardOuterY = boardY - 18;
